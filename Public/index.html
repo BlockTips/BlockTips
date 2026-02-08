@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlockTips Donation</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; }
+    form { display: flex; flex-direction: column; }
+    label { margin-top: 10px; }
+    input, textarea { padding: 8px; margin-bottom: 10px; }
+    button { padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+    #donationForm { display: none; } /* Hide until connected */
+    #status { margin-top: 20px; color: green; }
+    /* Mobile responsive */
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+      input, textarea, button { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Donate to Creator via BlockTips</h1>
+  <button id="connectButton">Connect Wallet</button>
+  <form id="donationForm">
+    <label for="amount">Amount in $ (e.g., 10):</label>
+    <input type="number" id="amount" min="1" required>
+
+    <label for="name">Your Name (or leave blank for anonymous):</label>
+    <input type="text" id="name">
+
+    <label for="message">Message:</label>
+    <textarea id="message" rows="3"></textarea>
+
+    <button type="button" id="donateButton">Donate</button>
+  </form>
+  <div id="status"></div>
+
+  <script src="https://unpkg.com/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+  <script src="https://unpkg.com/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+  <script>
+    const ethers = window.ethers;
+
+    const creatorAddress = '0xC2e4F3103393dA92f3BbF83A6155E7D764E52321';
+    const chainId = '0x152'; // Testnet (338 hex); for mainnet, change to '0x19' (25 hex)
+    const rpcUrl = 'https://evm-t3.cronos.org'; // Testnet; mainnet: 'https://evm.cronos.org'
+
+    let provider, signer;
+
+    // Connect button
+    document.getElementById('connectButton').addEventListener('click', async () => {
+      try {
+        if (!window.ethereum) {
+          throw new Error('No wallet extension detected. Install Crypto.com Onchain Wallet or similar.');
+        }
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chainId }],
+        });
+        document.getElementById('connectButton').style.display = 'none';
+        document.getElementById('donationForm').style.display = 'block';
+        document.getElementById('status').textContent = 'Wallet connected!';
+      } catch (error) {
+        console.error('Connect error:', error);
+        document.getElementById('status').textContent = `Error: ${error.message} (Check if on correct chain or try reconnecting)`;
+      }
+    });
+
+    // Donate button
+    document.getElementById('donateButton').addEventListener('click', async () => {
+      const amount = document.getElementById('amount').value;
+      const name = document.getElementById('name').value || 'Anonymous';
+      const message = document.getElementById('message').value;
+
+      if (!amount || !signer) return document.getElementById('status').textContent = 'Connect wallet and enter amount';
+
+      try {
+        const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=crypto-com-chain&vs_currencies=usd');
+        if (!priceRes.ok) throw new Error('Price fetch failed');
+        const data = await priceRes.json();
+        const croPrice = data['crypto-com-chain'].usd;
+        const croAmount = parseFloat(amount) / croPrice;
+        const croWei = ethers.parseEther(croAmount.toFixed(6).toString());
+
+        const tx = await signer.sendTransaction({ to: creatorAddress, value: croWei });
+        await tx.wait();
+
+        const socket = io();
+        socket.emit('donation', {
+          amount: parseFloat(amount),
+          croAmount: croAmount.toFixed(2),
+          name: name,
+          message: message,
+          txHash: tx.hash
+        });
+
+        document.getElementById('status').innerHTML = `Donated! <a href="https://explorer.cronos.org/testnet/tx/${tx.hash}" target="_blank">Tx: ${tx.hash}</a> from ${name}: ${message}`;
+      } catch (error) {
+        console.error('Donation error:', error);
+        document.getElementById('status').textContent = `Error: ${error.message} (Check funds, gas, or network)`;
+      }
+    });
+  </script>
+</body>
+</html>

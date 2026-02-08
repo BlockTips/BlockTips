@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Donation Alert</title>
+  <style>
+    body { background: transparent; color: white; font-size: 30px; text-align: center; }
+    #alert { display: none; padding: 20px; background: rgba(0,0,0,0.7); border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <div id="alert"></div>
+
+  <script src="https://unpkg.com/socket.io-client@4.5.1/dist/socket.io.min.js"></script>
+  <script>
+    console.log('Alert page loaded - starting socket connection'); // Debug: Page load
+
+    const socket = io();
+
+    socket.on('connect', () => {
+      console.log('Socket connected to server'); // Debug: Connection success
+    });
+
+    socket.on('connect_error', (error) => {
+      console.log('Socket connection error:', error.message); // Debug: Connection failure
+    });
+
+    socket.on('donationAlert', (data) => {
+      console.log('Received donationAlert event:', data); // Debug: Event received with data
+
+      const alertDiv = document.getElementById('alert');
+      alertDiv.innerHTML = `New Donation: $${data.amount} (${data.croAmount} CRO)<br>From: ${data.name}<br>Message: ${data.message}`;
+      alertDiv.style.display = 'block';
+      setTimeout(() => {
+        alertDiv.style.display = 'none';
+        console.log('Alert hidden after timeout'); // Debug: Hide trigger
+      }, 60000); // Hide after 5s
+    });
+  </script>
+</body>
+</html>
