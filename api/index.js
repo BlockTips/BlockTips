@@ -14,6 +14,11 @@ const port = process.env.PORT || 3000;
 // Serve static files from root 'public' (adjust path from api folder)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// NEW: Explicit root route to serve index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+
 // Socket.io events
 io.on('connection', (socket) => {
   console.log('Client connected for alerts');
