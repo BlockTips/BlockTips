@@ -21,6 +21,10 @@
 </head>
 <body>
   <h1>Donate to Creator via BlockTips</h1>
+  <select id="networkSelect">
+    <option value="testnet">Testnet (Cronos Testnet)</option>
+    <option value="mainnet">Mainnet (Cronos Mainnet)</option>
+  </select>
   <button id="connectButton">Connect Wallet</button>
   <form id="donationForm">
     <label for="amount">Amount in $ (e.g., 10):</label>
@@ -41,11 +45,45 @@
   <script>
     const ethers = window.ethers;
 
-    const creatorAddress = '0xC2e4F3103393dA92f3BbF83A6155E7D764E52321';
-    const chainId = '0x152'; // Testnet (338 hex); for mainnet, change to '0x19' (25 hex)
-    const rpcUrl = 'https://evm-t3.cronos.org'; // Testnet; mainnet: 'https://evm.cronos.org'
+    const creatorAddress = '0xC2e4F3103393dA92f3BbF83A6155E7D764E52321'; // Use same address for both, or update if mainnet-specific
+
+    let networkConfig = {
+      testnet: {
+        chainId: '0x152', // Testnet (338 hex)
+        rpcUrl: 'https://evm-t3.cronos.org',
+        explorerUrl: 'https://explorer.cronos.org/testnet'
+      },
+      mainnet: {
+        chainId: '0x19', // Mainnet (25 hex)
+        rpcUrl: 'https://evm.cronos.org',
+        explorerUrl: 'https://explorer.cronos.org'
+      }
+    };
+
+    let selectedNetwork = 'testnet'; // Default to testnet
 
     let provider, signer;
+
+    // Network select change
+    document.getElementById('networkSelect').addEventListener('change', (e) => {
+      selectedNetwork = e.target.value;
+      if (signer) {
+        switchNetwork(); // Switch if already connected
+      }
+    });
+
+    async function switchNetwork() {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: networkConfig[selectedNetwork].chainId }],
+        });
+        document.getElementById('status').textContent = `Switched to ${selectedNetwork.charAt(0).toUpperCase() + selectedNetwork.slice(1)}!`;
+      } catch (error) {
+        console.error('Switch network error:', error);
+        document.getElementById('status').textContent = `Error switching network: ${error.message}`;
+      }
+    }
 
     // Connect button
     document.getElementById('connectButton').addEventListener('click', async () => {
@@ -56,10 +94,7 @@
         await window.ethereum.request({ method: 'eth_requestAccounts' });
         provider = new ethers.BrowserProvider(window.ethereum);
         signer = await provider.getSigner();
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: chainId }],
-        });
+        await switchNetwork(); // Switch to selected network
         document.getElementById('connectButton').style.display = 'none';
         document.getElementById('donationForm').style.display = 'block';
         document.getElementById('status').textContent = 'Wallet connected!';
@@ -97,7 +132,7 @@
           txHash: tx.hash
         });
 
-        document.getElementById('status').innerHTML = `Donated! <a href="https://explorer.cronos.org/testnet/tx/${tx.hash}" target="_blank">Tx: ${tx.hash}</a> from ${name}: ${message}`;
+        document.getElementById('status').innerHTML = `Donated! <a href="${networkConfig[selectedNetwork].explorerUrl}/tx/${tx.hash}" target="_blank">Tx: ${tx.hash}</a> from ${name}: ${message}`;
       } catch (error) {
         console.error('Donation error:', error);
         document.getElementById('status').textContent = `Error: ${error.message} (Check funds, gas, or network)`;
