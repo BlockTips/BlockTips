@@ -18,7 +18,9 @@ console.log('Static path:', path.join(__dirname, '..', 'public'));
 
 // NEW: Explicit root route to serve index.html
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+  console.log('Trying to serve root index.html at:', indexPath); // Additional log for debug
+  res.sendFile(indexPath);
 });
 
 // Socket.io events
